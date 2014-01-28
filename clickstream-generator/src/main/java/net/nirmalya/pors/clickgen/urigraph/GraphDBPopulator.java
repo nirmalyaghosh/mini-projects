@@ -1,19 +1,21 @@
 package net.nirmalya.pors.clickgen.urigraph;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.IndexManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,29 +28,70 @@ public class GraphDBPopulator {
 
 	private Logger logger = LoggerFactory.getLogger(GraphDBPopulator.class);
 
-	public GraphDatabaseService populate(String graphDbPath,
-			String... csvFilePaths) {
-		GraphDatabaseService graphDb = new GraphDatabaseFactory()
-				.newEmbeddedDatabase(graphDbPath);
+	private Node addNode(GraphDatabaseService graphDb, Index<Node> index, String propertyName, String propertyValue) {
+		Node node = index.get(propertyName, propertyValue).getSingle();
+		if (node == null) {
+			logger.debug("Creating node with '{}'='{}'", propertyName, propertyValue);
+			node = graphDb.createNode();
+			node.setProperty(propertyName, propertyValue);
+			index.add(node, propertyName, propertyValue);
+		} else {
+			logger.trace("Node with '{}'='{}' already exists", propertyName, propertyValue);
+		}
+
+		return node;
+	}
+
+	private void addRelationship(Node srcNode, Node dstNode, RelTypes relationshipType) {
+		boolean foundRelationship = false;
+		Iterable<Relationship> relationships = srcNode.getRelationships();
+		if (relationships != null) {
+			Iterator<Relationship> iterator = relationships.iterator();
+			while (iterator.hasNext()) {
+				Relationship relationship = iterator.next();
+				Node startNode = relationship.getStartNode();
+				Node endNode = relationship.getEndNode();
+				if ((startNode != null) && (endNode != null)) {
+					if (startNode.equals(srcNode) && endNode.equals(dstNode)) {
+						logger.trace("Found relationship between {} and {}", srcNode, dstNode);
+						foundRelationship = true;
+					}
+				}
+			}
+		}
+
+		if (!foundRelationship) {
+			logger.debug("Adding relationship between {} and {}", srcNode, dstNode);
+			srcNode.createRelationshipTo(dstNode, relationshipType);
+		}
+	}
+
+	public GraphDatabaseService populate(String graphDbPath, String... csvFilePaths) {
+
+		logger.debug("Populating graphDB");
+		long t1 = System.currentTimeMillis();
+
+		GraphDatabaseService graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(graphDbPath);
+		IndexManager indexManager = graphDb.index();
 
 		for (String csvFilePath : csvFilePaths) {
 			List<String> lines = readFile(csvFilePath);
-
 			Transaction tx = graphDb.beginTx();
+			Index<Node> index = indexManager.forNodes("pageUri");
 			try {
 				for (String line : lines) {
 					String[] columns = line.split(",");
-					Node srcNode = graphDb.createNode();
-					srcNode.setProperty("name", columns[0]);
-					Node dstNode = graphDb.createNode();
-					dstNode.setProperty("name", columns[1]);
-					// TODO ideally we'd like to check if node already exists
+					Node srcNode = addNode(graphDb, index, "pageUri", columns[0]);
+					Node dstNode = addNode(graphDb, index, "pageUri", columns[1]);
+					addRelationship(srcNode, dstNode, RelTypes.LINKS_TO);
 				}
 				tx.success();
-			} finally {
-				tx.finish();
+			} catch (Exception e) {
+				tx.failure();
 			}
 		}
+
+		logger.debug("Finished populating graphDB. Time taken : {}", (System.currentTimeMillis() - t1));
 
 		return graphDb;
 	}
@@ -62,7 +105,7 @@ public class GraphDBPopulator {
 				lines.add(scanner.nextLine());
 			}
 		} catch (IOException e) {
-			logger.debug("Caught an IOException whilst reading {}", csvFilePath);
+			logger.debug("Caught an IOException whilst reading {} {}", csvFilePath, e);
 		}
 
 		return lines;
