@@ -1,5 +1,8 @@
 package net.nirmalya.pors.clickgen;
 
+import java.util.Map;
+import java.util.Map.Entry;
+
 import net.nirmalya.pors.clickgen.urigraph.GraphDBPopulator;
 
 import org.apache.commons.cli.BasicParser;
@@ -8,7 +11,11 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.neo4j.cypher.javacompat.ExecutionEngine;
+import org.neo4j.cypher.javacompat.ExecutionResult;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.graphdb.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +25,8 @@ import org.slf4j.LoggerFactory;
  */
 public class ClickstreamGenerator {
 
-	private static Logger logger = LoggerFactory.getLogger(ClickstreamGenerator.class);
+	private static Logger logger = LoggerFactory
+			.getLogger(ClickstreamGenerator.class);
 
 	private static String PROPERTIES_FILE_PATH = "path-to-properties-file";
 	private static String URI_CSV_FILE_PATH = "path-to-uri-csv-files";
@@ -27,12 +35,16 @@ public class ClickstreamGenerator {
 	private static Options constructOptions() {
 		Options options = new Options();
 
-		options.addOption(null, URI_CSV_FILE_PATH, true, "path to one or more files containing comma separated "
-				+ "list of URIs (one pair per line) " + "e.g. A,B (indicates B accessible from A");
+		options.addOption(null, URI_CSV_FILE_PATH, true,
+				"path to one or more files containing comma separated "
+						+ "list of URIs (one pair per line) "
+						+ "e.g. A,B (indicates B accessible from A");
 
-		options.addOption(null, URI_GRAPH_FILE_PATH, true, "path to file storing the URI graph");
+		options.addOption(null, URI_GRAPH_FILE_PATH, true,
+				"path to file storing the URI graph");
 
-		options.addOption(null, PROPERTIES_FILE_PATH, true, "path to ClickstreamGenerator.properties file");
+		options.addOption(null, PROPERTIES_FILE_PATH, true,
+				"path to ClickstreamGenerator.properties file");
 
 		return options;
 	}
@@ -45,7 +57,8 @@ public class ClickstreamGenerator {
 		CommandLine line = parser.parse(options, args);
 
 		// Ensure that required options have been specified
-		if (!line.hasOption(URI_GRAPH_FILE_PATH) || !line.hasOption(URI_CSV_FILE_PATH)
+		if (!line.hasOption(URI_GRAPH_FILE_PATH)
+				|| !line.hasOption(URI_CSV_FILE_PATH)
 				|| !line.hasOption(PROPERTIES_FILE_PATH)) {
 			printOptions(options);
 			return;
@@ -57,16 +70,37 @@ public class ClickstreamGenerator {
 
 	private static void printOptions(Options options) {
 		HelpFormatter helpFormatter = new HelpFormatter();
-		helpFormatter.printHelp("java -jar <name-of-this-jar-file>.jar <options>", options);
+		helpFormatter.printHelp(
+				"java -jar <name-of-this-jar-file>.jar <options>", options);
 	}
 
 	public void execute(CommandLine line) {
 
+		// Populate the graph DB
 		String graphDbPath = line.getOptionValue(URI_GRAPH_FILE_PATH);
 		String[] csvFiles = line.getOptionValue(URI_CSV_FILE_PATH).split(",");
 		GraphDBPopulator populator = new GraphDBPopulator();
-		GraphDatabaseService graphDb = populator.populate(graphDbPath, csvFiles);
+		GraphDatabaseService graphDb = populator
+				.populate(graphDbPath, csvFiles);
 		registerShutdownHook(graphDb);
+
+		// Use the graph DB to get list of paths
+		ExecutionEngine cypherQueryEngine = new ExecutionEngine(graphDb);
+		ExecutionResult result;
+		try (Transaction ignored = graphDb.beginTx()) {
+			result = cypherQueryEngine
+					.execute("START a = node(*) MATCH path = a-[r:LINKS_TO*]->b "
+							+ "RETURN EXTRACT(n IN NODES(path)| n.pageUri)");
+
+			ResourceIterator<Map<String, Object>> iterator = result.iterator();
+			while (iterator.hasNext()) {
+				Map<String, Object> row = iterator.next();
+				for (Entry<String, Object> column : row.entrySet()) {
+					String nodeSeqStr = column.getValue().toString();
+					logger.debug("{}", nodeSeqStr);// TODO
+				}
+			}
+		}
 
 		// TODO Auto-generated method stub
 
