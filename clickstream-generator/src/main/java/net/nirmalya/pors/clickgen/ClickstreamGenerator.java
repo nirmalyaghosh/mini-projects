@@ -2,6 +2,7 @@ package net.nirmalya.pors.clickgen;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
@@ -66,11 +67,14 @@ public class ClickstreamGenerator {
 		String[] csvFiles = line.getOptionValue(URI_CSV_FILE_PATH).split(",");
 
 		// Start the URI sequence produce and consumer
-		BlockingQueue<String> queue = new ArrayBlockingQueue<String>(2);
-		new Thread(new URISequenceProducer(graphDbPath, csvFiles, queue)).start();
-		new Thread(new URISequenceConsumer(queue)).start();
+		BlockingQueue<String> uriSequenceQueue = new ArrayBlockingQueue<String>(2);
+		BlockingQueue<ResourceAccessEvent> accessEventQueue = new PriorityBlockingQueue<ResourceAccessEvent>(2000);
+		new Thread(new URISequenceProducer(graphDbPath, csvFiles, uriSequenceQueue)).start();
+		new Thread(new URISequenceConsumer(uriSequenceQueue,accessEventQueue)).start();
+		
+		new Thread(new ResourceAccessEventConsumer(accessEventQueue)).start();
 
 		// TODO Auto-generated method stub
-		logger.debug("Shut down");
+	//	logger.debug("Shut down");
 	}
 }

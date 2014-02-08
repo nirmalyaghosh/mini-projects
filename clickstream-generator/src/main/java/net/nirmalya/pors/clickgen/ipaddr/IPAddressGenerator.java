@@ -13,7 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Generates IP addresses based on randomly selected address block(s) read from country specific file(s).
+ * Generates IP addresses based on randomly selected address block(s) read from country specific file(s) in the resource
+ * directory.
  * 
  * @author Nirmalya Ghosh
  */
@@ -36,6 +37,10 @@ public class IPAddressGenerator {
 			ipAddresses[i] = INSTANCE.generate(countryCode);
 		}
 		return ipAddresses;
+	}
+
+	public static void main(String[] args) {
+		IPAddressGenerator.generateIPAddress(Country.SINGAPORE);
 	}
 
 	private IPAddressGenerator() {
