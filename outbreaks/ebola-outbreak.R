@@ -41,7 +41,12 @@ for (country_name in ob_countries) {
     shp_file_path <- unique(ob_df[ob_df$Country == country_name,]$FilePath)
     shp = readShapePoly(shp_file_path)
     ob_districts_raw = ob_areas[ob_areas$Country==country_name,]$District
-    matched_indices = amatch(ob_districts_raw,shp$ADM2,maxDist=2)
+    adm_level_to_use = shapeFiles[shapeFiles$Country==country_name,]$ADM_Level
+    if(adm_level_to_use==2){ 
+      matched_indices = amatch(ob_districts_raw,shp$ADM2,maxDist=2)
+    } else {
+      matched_indices = amatch(ob_districts_raw,shp$ADM1,maxDist=2)
+    }
     matched_indices <- matched_indices[!is.na(matched_indices)] # Remove NAs
     ob_districts = shp$ADM2[matched_indices]   
     for (ob_district in ob_districts) {

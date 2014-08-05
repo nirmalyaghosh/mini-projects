@@ -1,5 +1,5 @@
-CountryCode,Country,FilePath
-GIN,Guinea,C:/data/shapefiles/ESRI/GIN/GIN.shp
-LIB,Liberia,C:/data/shapefiles/ESRI/LIB/LIB.shp
-SIL,Sierra Leone,C:/data/shapefiles/ESRI/SIL/SIL.shp
-,Africa,C:/data/shapefiles/ESRI/Africa/Africa.shp
+CountryCode,Country,ADM_Level,FilePath
+GIN,Guinea,2,C:/nirmalya/dev/data/shapefiles/ESRI/GIN/GIN.shp
+LIB,Liberia,1,C:/nirmalya/dev/data/shapefiles/ESRI/LIB/LIB.shp
+SIL,Sierra Leone,2,C:/nirmalya/dev/data/shapefiles/ESRI/SIL/SIL.shp
+,Africa,1,C:/nirmalya/dev/data/shapefiles/ESRI/Africa/Africa.shp
