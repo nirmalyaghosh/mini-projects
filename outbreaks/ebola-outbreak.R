@@ -1,3 +1,4 @@
+library(lubridate)
 library(maptools)
 library(RColorBrewer)
 library(rgeos)
@@ -15,7 +16,7 @@ library(stringdist)
 
 ## Read the known affected prefectures/districts
 ## NOTE : Prefix 'ob' for outbreak
-ob_areas = read.table("WHO-Alerts-Ebola.tsv", header=T, stringsAsFactors=F)
+ob_areas = read.delim("WHO-Alerts-Ebola.tsv", header=T, stringsAsFactors=F)
 ob_areas$URL <- NULL # Drop the 'URL' column, since not required
 ## Read the file indicating the path of the required shape files
 shapeFiles <- read.csv("shapefiles.csv", header=TRUE, stringsAsFactors=FALSE)
