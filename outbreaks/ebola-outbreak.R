@@ -61,16 +61,18 @@ for (country_name in ob_countries) {
 ## Plot the container map (Africa)
 xlim <- c(bBox[1,1]  , bBox[1,2] )
 ylim <- c(bBox[2,1] , bBox[2,2] )
-plot(shp_Africa,axes=TRUE,xlim=xlim,ylim=ylim)
+plot(shp_Africa,axes=TRUE,xlim=xlim,ylim=ylim,lwd=2)
 
 ## Plot the affected districts
 i = 0
+label_cols <- rep("#9E0142", length(ob_district_shp_list))
 for (shp_ob_district in ob_district_shp_list) {
     i = i + 1
     plot(shp_ob_district,add=TRUE,col=label_cols[i])
 }
 
 ## Add the title and legend
-title(main="Districts Affected By Ebola")
+latest_date <- format(max(dmy(ob_df$Date)), "%d %b %Y")
+title(main=paste0("Districts Affected By Ebola (As Of ",latest_date,")"))
 labels <- ob_district_name_list
 legend("bottomleft", NULL, labels, fill=label_cols, density, bty="n", cex=.8)
