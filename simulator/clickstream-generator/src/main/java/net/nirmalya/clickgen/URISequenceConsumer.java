@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen;
+package net.nirmalya.clickgen;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.Arrays;
@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import net.nirmalya.pors.clickgen.ipaddr.IPAddressGenerator;
+import net.nirmalya.clickgen.ipaddr.IPAddressGenerator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

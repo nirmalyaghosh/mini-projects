@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen;
+package net.nirmalya.clickgen;
 
 import java.util.concurrent.BlockingQueue;
 

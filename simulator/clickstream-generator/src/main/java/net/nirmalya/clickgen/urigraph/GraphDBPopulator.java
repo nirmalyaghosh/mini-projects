@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen.urigraph;
+package net.nirmalya.clickgen.urigraph;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

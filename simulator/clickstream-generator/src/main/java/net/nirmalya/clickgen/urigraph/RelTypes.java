@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen.urigraph;
+package net.nirmalya.clickgen.urigraph;
 
 import org.neo4j.graphdb.RelationshipType;
 

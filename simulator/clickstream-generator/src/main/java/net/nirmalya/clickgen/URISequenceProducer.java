@@ -1,10 +1,10 @@
-package net.nirmalya.pors.clickgen;
+package net.nirmalya.clickgen;
 
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 
-import net.nirmalya.pors.clickgen.urigraph.GraphDBPopulator;
+import net.nirmalya.clickgen.urigraph.GraphDBPopulator;
 
 import org.neo4j.cypher.javacompat.ExecutionEngine;
 import org.neo4j.cypher.javacompat.ExecutionResult;

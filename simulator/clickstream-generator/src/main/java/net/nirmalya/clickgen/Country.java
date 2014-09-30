@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen;
+package net.nirmalya.clickgen;
 
 /**
  * Represents the country codes. Used to refer to specific configuration files.

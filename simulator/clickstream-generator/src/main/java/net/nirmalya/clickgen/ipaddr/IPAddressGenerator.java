@@ -1,4 +1,4 @@
-package net.nirmalya.pors.clickgen.ipaddr;
+package net.nirmalya.clickgen.ipaddr;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
 
-import net.nirmalya.pors.clickgen.Country;
+import net.nirmalya.clickgen.Country;
 
 import org.apache.commons.net.util.SubnetUtils;
 import org.slf4j.Logger;
