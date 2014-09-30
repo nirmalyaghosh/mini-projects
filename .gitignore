@@ -1,4 +1,6 @@
 *.class
 *.classpath
+*.launch
 *.project
 *.prefs
+target/
