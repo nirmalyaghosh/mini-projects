@@ -3,7 +3,8 @@ package net.nirmalya.clickgen;
 import java.util.Map;
 
 /**
- * Represents an event created each time a simulated user accesses a web resource.
+ * Represents an event created each time a simulated user accesses a web
+ * resource.
  * 
  * @author Nirmalya Ghosh
  */
@@ -18,23 +19,29 @@ public class ResourceAccessEvent implements Comparable<ResourceAccessEvent> {
 	private String remoteHost;
 	private String userAgentString;
 
-	public ResourceAccessEvent(long timestamp, String remoteHostAddress, String authenticatedUser,
-			String resourceRequested, int bytesSent, String refererredByResource, Map<String, String> cookies) {
-		this.authenticatedUser = (authenticatedUser != null) ? authenticatedUser : "-";
+	public ResourceAccessEvent(long timestamp, String remoteHostAddress,
+			String authenticatedUser, String resourceRequested, int bytesSent,
+			String refererredByResource, Map<String, String> cookies) {
+		this.authenticatedUser = (authenticatedUser != null) ? authenticatedUser
+				: "-";
 		this.bytesSent = bytesSent;
 		setCookiesString(cookies);
-		this.httpReferer = (refererredByResource != null) ? refererredByResource : "-";
+		this.httpReferer = (refererredByResource != null) ? refererredByResource
+				: "-";
 		this.remoteHost = remoteHostAddress;
 		this.resourceRequested = resourceRequested;
 		this.timestamp = timestamp;
 	}
 
-	public ResourceAccessEvent(long timestamp, String remoteHostAddress, String authenticatedUser,
-			String resourceRequested, int bytesSent, String refererredByResource, String cookieNameValueString) {
-		this.authenticatedUser = (authenticatedUser != null) ? authenticatedUser : "-";
+	public ResourceAccessEvent(long timestamp, String remoteHostAddress,
+			String authenticatedUser, String resourceRequested, int bytesSent,
+			String refererredByResource, String cookieNameValueString) {
+		this.authenticatedUser = (authenticatedUser != null) ? authenticatedUser
+				: "-";
 		this.bytesSent = bytesSent;
 		this.cookiesString = cookieNameValueString;
-		this.httpReferer = (refererredByResource != null) ? refererredByResource : "-";
+		this.httpReferer = (refererredByResource != null) ? refererredByResource
+				: "-";
 		this.remoteHost = remoteHostAddress;
 		this.resourceRequested = resourceRequested;
 		this.timestamp = timestamp;
@@ -45,7 +52,8 @@ public class ResourceAccessEvent implements Comparable<ResourceAccessEvent> {
 		if (other == null) {
 			return 1;
 		} else
-			return other.getTimestamp() > this.timestamp ? -1 : ((other.getTimestamp() == this.timestamp) ? 0 : 1);
+			return other.getTimestamp() > this.timestamp ? -1 : ((other
+					.getTimestamp() == this.timestamp) ? 0 : 1);
 	}
 
 	/**
@@ -60,15 +68,17 @@ public class ResourceAccessEvent implements Comparable<ResourceAccessEvent> {
 	}
 
 	/**
-	 * Returns a semicolon separated string of cookies similar to <code>USERID=CustomerA;IMPID=01234</code>. Returns "-"
-	 * if no cookies have been set.
+	 * Returns a semicolon separated string of cookies similar to
+	 * <code>USERID=CustomerA;IMPID=01234</code>. Returns "-" if no cookies have
+	 * been set.
 	 */
 	public String getCookiesString() {
 		return cookiesString;
 	}
 
 	/**
-	 * Returns the resource that linked to the resource being requested. Returns "-" if not set.
+	 * Returns the resource that linked to the resource being requested. Returns
+	 * "-" if not set.
 	 */
 	public String getHttpReferer() {
 		return httpReferer;
