@@ -3,15 +3,13 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
-		<groupId>net.nirmalya.pors</groupId>
-		<artifactId>pors</artifactId>
+		<groupId>net.nirmalya</groupId>
+		<artifactId>clickgen</artifactId>
 		<version>0.1-SNAPSHOT</version>
-		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<artifactId>clickstream-generator</artifactId>
 	<packaging>jar</packaging>
-	<!-- <groupId>net.nirmalya.pors</groupId> -->
 	<name>Clickstream Generator</name>
 
 	<dependencies>
