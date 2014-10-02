@@ -1,0 +1,3 @@
+user1 page1 time1
+user2 page3 time2
+user1 page2 time3
