@@ -16,3 +16,5 @@ rm -rf ~/tmp/neo4j-db/uri-graphdb
 ./scripts/run-clickgen.sh
 ```
 Refer to the __scripts__ folder
+
+Refer to src/test/resources/sample-access-log-with-cookie.txt
