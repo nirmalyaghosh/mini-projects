@@ -1,3 +1,4 @@
-user1 page1 time1
-user2 page3 time2
-user1 page2 time3
+202.156.9.227 - - [07/Feb/2014:17:59:07 +0000] "GET /category-1/page-1.html HTTP/1.1" 200 4661 "http://50.56.188.172/" "Mozilla/5.0 (Linux; Android 4.3; GT-N7105 Build/JSS15J) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.59 Mobile Safari/537.36" "testservercookie=2622857bceebc571b945fe0a49ec6a4e"
+202.156.9.228 - - [07/Feb/2014:17:59:08 +0000] "GET /category-2/page-2.html HTTP/1.1" 200 4661 "http://50.56.188.172/" "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/532.5 (KHTML, like Gecko) Chrome/4.1.249.1064 Safari/532.5" "testservercookie=ff05b1a9af5fe55f33ad86f9ede1e905"
+202.156.9.227 - - [07/Feb/2014:17:59:22 +0000] "GET /category-1/page-3.html HTTP/1.1" 200 4661 "http://50.56.188.172/" "Mozilla/5.0 (Linux; Android 4.3; GT-N7105 Build/JSS15J) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.59 Mobile Safari/537.36" "testservercookie=2622857bceebc571b945fe0a49ec6a4e"
+202.156.9.228 - - [07/Feb/2014:17:59:24 +0000] "GET /category-2/page-4.html HTTP/1.1" 200 4661 "http://50.56.188.172/" "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/532.5 (KHTML, like Gecko) Chrome/4.1.249.1064 Safari/532.5" "testservercookie=ff05b1a9af5fe55f33ad86f9ede1e905"
