@@ -4,12 +4,12 @@ import java.util.regex.Pattern
 
 /**
  * Simple utility to parse Apache access logs.
- * 
+ *
  * It is based on Alvin Alexander's Scala Apache access log parser library.
- * 
+ *
  * @author Nirmalya Ghosh
  */
-class ApacheAccessLogUtils {
+class ApacheAccessLogUtils extends java.io.Serializable {
 
   // Regex for a record in the Apache access log format
   private val ddd = "\\d{1,3}" // at least 1 but not more than 3 times (possessive)
@@ -30,15 +30,7 @@ class ApacheAccessLogUtils {
   private val regex2 = s".*?((?:\\/[\\w\\.\\-]+)+)"
   private val p2 = Pattern.compile(regex2)
 
-  case class AccessLogRecord(
-    clientIpAddress: String,
-    dateTime: String,
-    requestedResource: String,
-    referer: String, // page that linked to this URL
-    userAgent: String // browser identification string
-    )
-
-  def extractRequestURI(requestLine: String): String = {
+  private def extractRequestURI(requestLine: String): String = {
     val matcher2 = p2.matcher(requestLine)
     if (matcher2.find) {
       return matcher2.group(1)
