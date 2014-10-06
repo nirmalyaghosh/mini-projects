@@ -22,35 +22,28 @@ object SparkStreamingPageViewMetrics {
     //TODO add check for the number of arguments passed
     val Array(batchDurationSeconds, zkQuorum, groupId, topic, numThreads) = args
     val conf = new SparkConf().setAppName("SparkStreamingPageViewMetrics")
-    conf.setMaster("local[1]")
-    val batchDuration = Seconds(batchDurationSeconds.toInt * 1000)
+    conf.setMaster("local[2]")
+    val batchDuration = Seconds(batchDurationSeconds.toInt)
     val ssc = new StreamingContext(conf, batchDuration)
-    val kafkaParams = Map(
-      "zookeeper.connect" -> zkQuorum,
-      "zookeeper.connection.timeout.ms" -> "10000",
-      "group.id" -> groupId)
     val topics = Map(topic -> 1)
-
     val accessLogUtil = new ApacheAccessLogUtils()
 
-    val rdd1 = KafkaUtils
-      .createStream(ssc, zkQuorum, groupId, topics, StorageLevel.MEMORY_AND_DISK )
-      .map(_._2).cache()
+    val stream = KafkaUtils.createStream(ssc, zkQuorum, groupId, topics).map(_._2)
 
     // Parse the Apache access logs
-    val rdd2 = rdd1.map { line => accessLogUtil.parseAccessLogRecord(line) }
+    val rdd1 = stream.map { line => accessLogUtil.parseAccessLogRecord(line) }
 
     // Filter out images, JSON, JavaScript, CSS
-    val rdd3 = rdd2
+    val rdd2 = rdd1
       .filter(x => !x.requestedResource.endsWith(".jpg"))
       .filter(x => !x.requestedResource.endsWith(".json"))
       .filter(x => !x.requestedResource.endsWith(".js"))
       .filter(x => !x.requestedResource.endsWith(".css"))
 
-    val rdd4 = rdd3.map(x => (x.requestedResource, 1))
+    val rdd3 = rdd2.map(x => (x.requestedResource, 1))
       .reduceByKey((x, y) => x + y)
 
-    rdd4.print()
+    rdd3.print()
 
     //TODO compute other metrics
 
