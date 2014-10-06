@@ -44,13 +44,14 @@ class ApacheAccessLogUtils extends java.io.Serializable {
     val matcher = p.matcher(accessLogLine)
     if (matcher.find) {
       zz(0) = matcher.group(1) // $ip
-      zz(1) = matcher.group(2) // $client
+      matcher.group(2) // $client
       matcher.group(3) // $user
-      zz(2) = matcher.group(4) // $dateTime
-      zz(3) = extractRequestURI(matcher.group(5)) // $request
+      zz(1) = matcher.group(4) // $dateTime
+      zz(2) = extractRequestURI(matcher.group(5)) // $request
       matcher.group(6) // $status
       matcher.group(7) // $bytes
-      zz(4) = matcher.group(8) // $referer
+      zz(3) = matcher.group(8) // $referer
+      zz(4) = matcher.group(9) // $agent
     }
 
     AccessLogRecord(zz(0), zz(1), zz(2), zz(3), zz(4))
