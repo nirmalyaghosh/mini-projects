@@ -5,5 +5,6 @@ case class AccessLogRecord(
     dateTime: String,
     requestedResource: String,
     referer: String, // page that linked to this URL
-    userAgent: String // browser identification string
+    userAgent: String, // browser identification string
+    sessionId: String = "-" // session identifier
     )

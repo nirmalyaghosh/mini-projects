@@ -22,7 +22,8 @@ class ApacheAccessLogUtils extends java.io.Serializable {
   private val bytes = "(\\S+)" // this can be a "-"
   private val referer = "\"(.*?)\""
   private val agent = "\"(.*?)\""
-  private val regex = s"$ip $client $user $dateTime $request $status $bytes $referer $agent"
+  private val sid = "(\\S+)" // session identifier
+  private val regex = s"$ip $client $user $dateTime $request $status $bytes $referer $agent $sid"
   private val p = Pattern.compile(regex)
 
   // Regex for extracting the 'Request-URI' from a 'Request-Line' which looks like
@@ -40,7 +41,7 @@ class ApacheAccessLogUtils extends java.io.Serializable {
   }
 
   def parseAccessLogRecord(accessLogLine: String): (AccessLogRecord) = {
-    var zz = new Array[String](5)
+    var zz = new Array[String](6)
     val matcher = p.matcher(accessLogLine)
     if (matcher.find) {
       zz(0) = matcher.group(1) // $ip
@@ -52,9 +53,10 @@ class ApacheAccessLogUtils extends java.io.Serializable {
       matcher.group(7) // $bytes
       zz(3) = matcher.group(8) // $referer
       zz(4) = matcher.group(9) // $agent
+      zz(5) = matcher.group(10) // $sessionId
     }
 
-    AccessLogRecord(zz(0), zz(1), zz(2), zz(3), zz(4))
+    AccessLogRecord(zz(0), zz(1), zz(2), zz(3), zz(4), zz(5))
   }
 
 }
