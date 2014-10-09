@@ -39,11 +39,18 @@ object SparkStreamingPageViewMetrics {
       .filter(x => !x.requestedResource.endsWith(".json"))
       .filter(x => !x.requestedResource.endsWith(".js"))
       .filter(x => !x.requestedResource.endsWith(".css"))
+      .cache()
 
-    val rdd3 = rdd2.map(x => (x.requestedResource, 1))
+    val pageViewCounts = rdd2.map(x => (x.requestedResource, 1))
       .reduceByKey((x, y) => x + y)
 
-    rdd3.print()
+    // pageViewCounts.print() // TODO record this to some store
+
+    val sessionIds = rdd2.map(x => (x.sessionId, 1))
+      .reduceByKey((x, y) => x + y)
+      .map(x => x._1 )
+
+    // sessionIds.print() // TODO record this to some store
 
     //TODO compute other metrics
 
