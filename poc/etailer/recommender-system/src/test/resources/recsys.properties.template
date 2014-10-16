@@ -1,0 +1,10 @@
+recommendations.model.file=/tmp/somefile.csv
+recommendations.per.unit=4
+recommendations.storage=mysql
+recommendations.storage.batch=100
+
+# MySQL 
+mysql.dbhost = 1.2.3.4
+mysql.dbname = db_name
+mysql.username = db_username
+mysql.password = db_user_password
