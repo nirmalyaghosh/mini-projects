@@ -41,6 +41,9 @@ object SparkStreamingPageViewMetrics {
       .filter(x => !x.requestedResource.endsWith(".css"))
       .cache()
 
+    val referrals = rdd2.map(x => ((x.referer, x.requestedResource), 1))
+      .reduceByKey((x, y) => x + y)
+
     val pageViewCounts = rdd2.map(x => (x.requestedResource, 1))
       .reduceByKey((x, y) => x + y)
 
