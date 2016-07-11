@@ -1,5 +1,3 @@
-Sample Visualizations
-======
+Mini projects
 
-- **Outbreaks**
- - **ebola-outbreak.R** - Visualization of districts affected by Ebola, using **R**. Data is sourced from [WHO](http://www.who.int/en/)'s [Global Alert and Response (GAR)](http://www.who.int/csr/don/archive/year/2014/en/) site and **shapefiles** from various sources. R packages used : `maptools`, `rgeos`, `RColorBrewer`, `stringdist`
+- `ebola-outbreak-viz` : Visualization (using R) of districts affected by the 2014 Ebola outbreak
