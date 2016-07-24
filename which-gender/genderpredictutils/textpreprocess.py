@@ -33,6 +33,22 @@ from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
 from spacy.en import English
 
 
+_spacy_parser_ = None  # Initialize later, as it takes time + ~3GB of RAM
+_wnl_ = WordNetLemmatizer()
+_lemmatize_ = lru_cache(maxsize=150000)(_wnl_.lemmatize)
+# Create a set of stop words + symbols, and ensure they all are unicode
+excluded_tokens = set(list(ENGLISH_STOP_WORDS) + ["urllink"])
+excluded_tokens.update(set(set(" ".join(string.punctuation).split(" "))))
+excluded_tokens = set([unicode(word) for word in list(excluded_tokens)])
+
+# For removing email addresses
+email_regex = re.compile(
+    "([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
+    "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+    "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)")
+# Regex credit : https://gist.github.com/dideler/5219706
+
+
 def count_num_features(dfx, column_name):
     return len(set(list(itertools.chain(*dfx[column_name].values.tolist()))))
 
@@ -56,6 +72,11 @@ def _remove_punct(token):
 
 
 def _remove_repeated_chars(token):
+    # Strips off repeating characters from words. For example,
+    # - AAAAAAAAAAARGH becomes AARGH
+    # - AAAAAAAAARRRRRRRGGGGGGGGGHHHHHHHHHHHH becomes AARRGGHH
+    # - daaaaarling becomes daarling
+    # - yeaaaaar becomes yeaar
     # Credit : http://stackoverflow.com/a/10072826
     return re.sub(r'(.)\1+', r'\1\1', token)
 
@@ -70,7 +91,8 @@ def _remove_urls(text):
         t = [i for i in t if i.startswith("www") == False]
     except Exception as exc:
         exc_mssg = str(exc)
-        print(exc_mssg)
+        print("Caught an exception removing URLs from {} : {}" \
+              .format(text, exc_mssg))
     processed_text = " ".join(t)
     return unicode(str(processed_text), errors="ignore")
 
@@ -120,7 +142,7 @@ def _tokenize_text(q_in, q_out):
         tokens = [_lemmatize_(token) for token in tokens]
 
         # Next, reconstructing the text prior to sending to Spacy
-        _text = " ".join(tokens)
+        _text = unicode(" ".join(tokens))
 
         # Next, using spaCy to tokenize and lemmatize text
         tokens = _parser_(_text)
@@ -136,7 +158,7 @@ def _tokenize_text(q_in, q_out):
         tokens = [t for t in tokens if t not in excluded_tokens]
 
         # Remove repeated dots
-        tokens = [token for token in tokens if token.count(".")!=len(token)]
+        tokens = [token for token in tokens if token.count(".") != len(token)]
 
         # Next, remove large strings of whitespace, new line characters
         while "" in tokens:
@@ -148,48 +170,103 @@ def _tokenize_text(q_in, q_out):
         q_in.task_done()
 
 
-def tokenize_text(data_frame, num_processes=4):
-    # Tokenizes text in the "all_posts_text" column
-    # Expects columns : "blogger_id", "gender", "all_posts_text"
+def _tokenize_text2(row):
+    # Simpler method to tokenize text
+    _text = unicode(row["blog_post"], errors="ignore")
+
+    # First, do some basic preprocessing, prior to using Spacy
+    # - this is done because using Spacy alone, is slow
+    tokens = _text.split()
+
+    # Next,
+    _tokens = []
+    for token in tokens:
+        if token not in excluded_tokens:
+            token = _remove_email_addresses(token, email_regex)
+            token = _remove_urls(token)
+            token = _remove_repeated_chars(token)
+            token = _lemmatize_(token)
+            _tokens.append(token)
+    tokens = _tokens
+
+    # Next, reconstructing the text prior to sending to Spacy
+    _text = unicode(" ".join(tokens))
+
+    # Next, using spaCy to tokenize and lemmatize text
+    tokens = _spacy_parser_(_text)
+    lemmas = []
+    for t in tokens:
+        lemmas.append(
+            t.lemma_.lower().strip() if t.lemma_ != "-PRON-" else t.lower_)
+    tokens = lemmas
+
+    # Remove tokens appearing in stop_words or stop_symbols
+    # NOTE : Repeating this because spaCy expands tokens
+    # Example, I'm ==> I to be
+    tokens = [t for t in tokens if t not in excluded_tokens]
+
+    # Remove repeated dots
+    tokens = [token for token in tokens if token.count(".") != len(token)]
+
+    # Next, remove large strings of whitespace, new line characters
+    while "" in tokens:
+        tokens.remove("")
+    while " " in tokens:
+        tokens.remove(" ")
+
+    return tokens
+
+
+def tokenize_text(data_frame, col_name="all_posts_text", num_processes=4):
+    # Tokenizes text in the indicated column
+    # Expects columns : "blogger_id", "gender", the indicated column
     ts = time.time()
-    input_q = mp.JoinableQueue()
-    output_q = mp.JoinableQueue()
 
-    for index, row in data_frame.iterrows():
-        input_q.put((row["blogger_id"], row["all_posts_text"]))
+    if num_processes == 1:
+        if _spacy_parser_ is None:
+            _spacy_parser_ = English()  # Takes a few seconds + ~3GB of RAM
+        data_frame["tokenized_text"] = data_frame.apply(_tokenize_text2,
+                                                        axis=1)
+    else:
+        del _spacy_parser_  # We do not need it here
+        input_q = mp.JoinableQueue()
+        output_q = mp.JoinableQueue()
 
-    # Setup (then start) list of processes responsible for tokenizing text
-    # NOTE : I noticed each instance of Spacy English parser takes up ~3GB
-    # of RAM (also verified it, https://github.com/spacy-io/spaCy/issues/100),
-    # so increase the number of processes prudently
-    processes = []
-    for i in range(num_processes):
-        p = mp.Process(target=_tokenize_text, args=(input_q, output_q))
-        p.daemon = True
-        processes.append(p)
-    for p in processes:
-        p.start()
-    print "Starting {} processes for tokenize_text".format(len(processes))
+        for index, row in data_frame.iterrows():
+            input_q.put((row["blogger_id"], row[col_name]))
 
-    # Read the items from the output queue
-    # - each item is a tuple (id, tokenized text)
-    items = []
-    while True:
-        try:
-            item = output_q.get(True, 60)
-            items.append(item)
-        except Queue.Empty:
-            break  # Work done
-        output_q.task_done()
+        # Setup (then start) list of processes responsible for tokenizing text
+        # NOTE : I noticed each instance of Spacy English parser takes up ~3GB
+        # of RAM (also verified it, https://github.com/spacy-io/spaCy/issues/100),
+        # so increase the number of processes prudently
+        processes = []
+        for i in range(num_processes):
+            p = mp.Process(target=_tokenize_text, args=(input_q, output_q))
+            p.daemon = True
+            processes.append(p)
+        for p in processes:
+            p.start()
+        print "Starting {} processes for tokenize_text".format(len(processes))
 
-    # Construct a DataFrame based on this list of tuples and merge later
-    col_name = "tokenized_text"
-    _df = pd.DataFrame(items, columns=["blogger_id", col_name])
-    data_frame = pd.merge(data_frame, _df, how="left")
+        # Read the items from the output queue
+        # - each item is a tuple (id, tokenized text)
+        items = []
+        while True:
+            try:
+                item = output_q.get(True, 60)
+                items.append(item)
+            except Queue.Empty:
+                break  # Work done
+            output_q.task_done()
 
-    # Fix for Only first 100 entries of list appear when saving as csv with
-    # utf-8 encoding
-    data_frame[col_name] = map(unicode, data_frame[col_name])
+        # Construct a DataFrame based on this list of tuples and merge later
+        col_name = "tokenized_text"
+        _df = pd.DataFrame(items, columns=["blogger_id", col_name])
+        data_frame = pd.merge(data_frame, _df, how="left")
+
+        # Fix for Only first 100 entries of list appear when saving as csv with
+        # utf-8 encoding
+        data_frame[col_name] = map(unicode, data_frame[col_name])
 
     print "Time taken : {:.2f} seconds".format(time.time() - ts)
     return data_frame
