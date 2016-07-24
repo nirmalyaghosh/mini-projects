@@ -7,12 +7,13 @@ Miscellaneous helper functions used during training the various models.
 
 import gc
 import gzip
+import os
 import time
 from collections import defaultdict
 from operator import itemgetter
 
 import numpy as np
-from sklearn.cross_validation import cross_val_score
+from sklearn.cross_validation import cross_val_score, train_test_split
 from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.grid_search import RandomizedSearchCV
@@ -75,6 +76,28 @@ def get_cv_scores(estimators, X, y, n_jobs=1):
     return cv_scores
 
 
+def get_doc2vec_train_test_data(d2v_model, d2v_dim, y, random_state):
+    # Given a Doc2Vec model, split the vectors into train and test subsets
+    indices = np.arange(len(d2v_model.docvecs))
+    train_indices, test_indices = train_test_split(indices, test_size=0.33,
+                                                   random_state=random_state)
+
+    train_arrays = np.zeros((len(train_indices), d2v_dim))
+    train_labels = np.zeros(len(train_indices))
+    test_arrays = np.zeros((len(test_indices), d2v_dim))
+    test_labels = np.zeros(len(test_indices))
+
+    for i in range(len(train_indices)):
+        train_arrays[i] = d2v_model.docvecs[train_indices[i]]
+    for i in range(len(test_indices)):
+        test_arrays[i] = d2v_model.docvecs[test_indices[i]]
+
+    train_labels = list(itemgetter(*train_indices.tolist())(y))
+    test_labels = list(itemgetter(*test_indices.tolist())(y))
+
+    return train_arrays, test_arrays, test_arrays, test_labels
+
+
 def print_elapsed_time(ts=None):
     if ts:
         print "\nTime Taken :", "%.1f" % ((time.time() - ts)/60), "minutes\n"
@@ -100,6 +123,29 @@ def retain_unique(list_of_tuples, tuple_elem_index=0):
     return [item for item in list_of_tuples if
             item[tuple_elem_index] not in seen and
             not seen.add(item[tuple_elem_index])]
+
+
+def train_doc2vec_model(d2v_model, model_id, d2v_sentences,
+                        model_file_path=None, num_epochs=10):
+    print("Doc2Vec model '{}', {}".format(model_id, d2v_model))
+    if model_file_path is None:
+        model_file_path = "{}.doc2vec".format(model_id)
+    if os.path.exists(model_file_path):
+        print("Loading from {} ...".format(model_file_path))
+        d2v_model = d2v_model.load(model_file_path)
+    else:
+        print("Building vocabulary ...")
+        d2v_model.build_vocab(d2v_sentences)
+        print("Training ...")
+        for epoch in range(num_epochs):
+            d2v_model.train(d2v_sentences)
+            d2v_model.alpha -= 0.002
+            d2v_model.min_alpha = d2v_model.alpha
+
+        print("Saving Doc2Vec model to {} ...".format(model_file_path))
+        d2v_model.save(model_file_path)
+
+    return d2v_model, model_id
 
 
 class MeanEmbeddingVectorizer(object):
