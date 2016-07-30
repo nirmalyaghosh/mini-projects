@@ -95,7 +95,7 @@ def get_doc2vec_train_test_data(d2v_model, d2v_dim, y, random_state):
     train_labels = list(itemgetter(*train_indices.tolist())(y))
     test_labels = list(itemgetter(*test_indices.tolist())(y))
 
-    return train_arrays, test_arrays, test_arrays, test_labels
+    return train_arrays, train_labels, test_arrays, test_labels
 
 
 def print_elapsed_time(ts=None):
