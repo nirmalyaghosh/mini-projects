@@ -61,6 +61,24 @@ def find_best_hyperparameters(clf, vectorizer, X, y, param_dist, num_iters=20):
     return random_search.best_estimator_
 
 
+def get_avg_feature_vectors(docs, w2v_model):
+    # Given a list of documents (each one a list of words),
+    # calculate the average feature vector for each and return a 2D numpy array
+    # Credit : https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-3-more-fun-with-word-vectors
+
+    num_feats = w2v_model.syn0.shape[1]
+    # w2v_model.syn0.shape : number of rows indicate the number of words in
+    # the model's vocabulary, number of columns indicate size of feature vector
+
+    ctr = 0.
+    doc_feat_vecs = np.zeros((len(docs), num_feats), dtype="float32")
+    for doc in docs:
+        doc_feat_vecs[ctr] = make_feature_vector(doc, w2v_model, num_feats)
+        ctr += 1.
+
+    return doc_feat_vecs
+
+
 def get_cv_score(est_id, est, X, y, n_jobs=1):
     cv_score = cross_val_score(est, X, y, cv=5, n_jobs=n_jobs,
                                scoring="f1").mean()
@@ -96,6 +114,24 @@ def get_doc2vec_train_test_data(d2v_model, d2v_dim, y, random_state):
     test_labels = list(itemgetter(*test_indices.tolist())(y))
 
     return train_arrays, train_labels, test_arrays, test_labels
+
+
+def make_feature_vector(words, model, num_features):
+    # Function to average all of the word vectors in a given document
+    # Credit : https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-3-more-fun-with-word-vectors
+
+    # Index2word is a list containing names of words in model's vocabulary
+    index2word_set = set(model.index2word)
+
+    feature_vector = np.zeros((num_features,), dtype="float32")
+    nwords = 0.
+    for word in words:
+        if word in index2word_set:
+            nwords = nwords + 1.
+            feature_vector = np.add(feature_vector, model[word])
+
+    feature_vector = np.divide(feature_vector, nwords)
+    return feature_vector
 
 
 def print_elapsed_time(ts=None):
