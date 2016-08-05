@@ -7,9 +7,11 @@ Miscellaneous helper functions used during training the various models.
 
 import gc
 import gzip
+import logging
 import os
 import time
 from collections import defaultdict
+from imp import reload
 from operator import itemgetter
 
 import numpy as np
@@ -20,6 +22,10 @@ from sklearn.grid_search import RandomizedSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC, SVC
 from tabulate import tabulate
+
+reload(logging)
+logging.basicConfig(format="%(asctime)s: %(message)s", level=logging.INFO,
+                    datefmt="%H:%M:%S")
 
 
 def compare_classifiers(clfs, X, y, n_jobs=7, print_scores=True):
@@ -33,7 +39,7 @@ def compare_classifiers(clfs, X, y, n_jobs=7, print_scores=True):
 
     scores = retain_unique(scores, 0)
     scores = sorted(scores, key=lambda (_, x): -x)
-    if print_scores==True:
+    if print_scores == True:
         print(tabulate(scores, floatfmt=".4f", headers=("Model", "F1-score")))
         num_unreachable_objects = gc.collect()
         print_elapsed_time(ts)
@@ -163,22 +169,22 @@ def retain_unique(list_of_tuples, tuple_elem_index=0):
 
 def train_doc2vec_model(d2v_model, model_id, d2v_sentences,
                         model_file_path=None, num_epochs=10):
-    print("Doc2Vec model '{}', {}".format(model_id, d2v_model))
+    logging.info("Doc2Vec model '{}', {}".format(model_id, d2v_model))
     if model_file_path is None:
         model_file_path = "{}.doc2vec".format(model_id)
     if os.path.exists(model_file_path):
-        print("Loading from {} ...".format(model_file_path))
+        logging.info("Loading from {} ...".format(model_file_path))
         d2v_model = d2v_model.load(model_file_path)
     else:
-        print("Building vocabulary ...")
+        logging.info("Building vocabulary ...")
         d2v_model.build_vocab(d2v_sentences)
-        print("Training ...")
+        logging.info("Training ...")
         for epoch in range(num_epochs):
             d2v_model.train(d2v_sentences)
             d2v_model.alpha -= 0.002
             d2v_model.min_alpha = d2v_model.alpha
 
-        print("Saving Doc2Vec model to {} ...".format(model_file_path))
+        logging.info("Saving Doc2Vec model to {} ...".format(model_file_path))
         d2v_model.save(model_file_path)
 
     return d2v_model, model_id
