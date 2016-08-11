@@ -38,7 +38,7 @@ def compare_classifiers(clfs, X, y, n_jobs=7, print_scores=True):
         num_unreachable_objects = gc.collect()
 
     scores = retain_unique(scores, 0)
-    scores = sorted(scores, key=lambda (_, x): -x)
+    scores = sorted(scores, key=lambda x: -x[1])
     if print_scores == True:
         print(tabulate(scores, floatfmt=".4f", headers=("Model", "F1-score")))
         num_unreachable_objects = gc.collect()
@@ -142,14 +142,14 @@ def make_feature_vector(words, model, num_features):
 
 def print_elapsed_time(ts=None):
     if ts:
-        print "\nTime Taken :", "%.1f" % ((time.time() - ts)/60), "minutes\n"
+        print("\nTime Taken :{:.1f} minutes\n".format(((time.time() - ts) / 60)))
     else:
-        print "\nElapsed Time :", "%.1f" % ((time.time() - t0)/60), \
-            "minutes to reach this point (from the start)"
+        print("\nElapsed Taken :{:.1f} minutes to reach this point (from the start)\n"\
+          .format(((time.time() - t0) / 60)))
 
 
 def read_GloVe_file(filepath):
-    print "Reading", filepath
+    print("Reading {}".format(filepath))
     glove_w2v = {}
     with gzip.open(filepath, "rb") as lines:
         for line in lines:

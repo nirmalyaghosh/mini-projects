@@ -10,7 +10,6 @@ XML files and creates a dataset to speed up work of the other notebooks.
 @author: Nirmalya Ghosh
 """
 
-import Queue
 import datetime
 import gzip
 import multiprocessing as mp
@@ -84,7 +83,7 @@ def writer(q_out, timeout_seconds, output_file_path):
             item = q_out.get(True, timeout_seconds)
             l.append(item)
         except Queue.Empty:
-            print "Writer has finished its job"
+            print("Writer has finished its job")
             break  # Work done
         if len(l) > 150:
             for t in l:
@@ -137,7 +136,7 @@ def prepare_data(data_dir, num_processes=5):
         processes.append(p)
     for p in processes:
         p.start()
-    print "Started {} processes for parsing the XML".format(len(processes))
+    print("Started {} processes for parsing the XML".format(len(processes)))
 
     # Start the writer process
     output_file_path_2 = os.path.join(data_dir, "blog_posts.txt")
@@ -146,12 +145,12 @@ def prepare_data(data_dir, num_processes=5):
                           args=(output_q, 15, output_file_path_2,))
     writer_p.daemon = True
     writer_p.start()
-    print "Started the writer process"
+    print("Started the writer process")
 
     for p in processes:
         p.join()
     writer_p.join()
-    print "Time taken : {:.2f} seconds".format(time.time() - t0)
+    print("Time taken : {:.2f} seconds".format(time.time() - t0))
 
     # Create GZip files for the output
     file_paths = [ output_file_path_1, output_file_path_2 ]
