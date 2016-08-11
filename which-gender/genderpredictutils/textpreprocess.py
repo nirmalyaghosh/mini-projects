@@ -5,7 +5,6 @@ Help preprocess the text.
 @author: Nirmalya Ghosh
 """
 
-import Queue
 import gc
 import itertools
 import json
@@ -21,12 +20,13 @@ import time
 import traceback
 from datetime import datetime
 from multiprocessing import Pool
-from urlparse import urlparse
+from urllib.parse import urljoin
+
 
 import numpy as np
 import pandas as pd
 import pandas as pd
-from functools32 import lru_cache
+from functools import lru_cache
 from gensim import parsing, utils
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
@@ -39,7 +39,7 @@ _lemmatize_ = lru_cache(maxsize=150000)(_wnl_.lemmatize)
 # Create a set of stop words + symbols, and ensure they all are unicode
 excluded_tokens = set(list(ENGLISH_STOP_WORDS) + ["urllink"])
 excluded_tokens.update(set(set(" ".join(string.punctuation).split(" "))))
-excluded_tokens = set([unicode(word) for word in list(excluded_tokens)])
+excluded_tokens = set([str(word) for word in list(excluded_tokens)])
 
 # For removing email addresses
 email_regex = re.compile(
@@ -246,7 +246,7 @@ def tokenize_text(data_frame, col_name="all_posts_text", num_processes=4):
             processes.append(p)
         for p in processes:
             p.start()
-        print "Starting {} processes for tokenize_text".format(len(processes))
+        print("Starting {} processes for tokenize_text".format(len(processes)))
 
         # Read the items from the output queue
         # - each item is a tuple (id, tokenized text)
@@ -268,7 +268,7 @@ def tokenize_text(data_frame, col_name="all_posts_text", num_processes=4):
         # utf-8 encoding
         data_frame[col_name] = map(unicode, data_frame[col_name])
 
-    print "Time taken : {:.2f} seconds".format(time.time() - ts)
+    print("Time taken : {:.2f} seconds".format(time.time() - ts))
     return data_frame
 
 
