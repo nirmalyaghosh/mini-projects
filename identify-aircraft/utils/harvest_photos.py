@@ -9,6 +9,7 @@ import hashlib
 import os
 import urllib
 
+import cv2
 import imagehash
 import pandas as pd
 import yaml
@@ -51,6 +52,41 @@ def _delete_duplicates(base_dir, dir1, dir_final):
         ctr += 1
     if ctr > 0:
         print("Deleted {} duplicates files under {}".format(ctr, work_dir))
+
+
+def _delete_photos_with_faces(target_dir, cascade_xml_file_path):
+    # Detect faces in the photos and delete them
+    # Credit : https://realpython.com/blog/python/face-recognition-with-python/
+    print("Identifying photos containing 2 or more faces..")
+    photos_with_faces = {}
+    faceCascade = cv2.CascadeClassifier(cascade_xml_file_path)
+    for f in [f for f in os.listdir(target_dir) if
+              os.path.isfile(os.path.join(target_dir, f))]:
+        f = os.path.join(target_dir, f)
+        image = cv2.imread(f)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # Detect faces in the image
+        faces = faceCascade.detectMultiScale(
+            gray,
+            scaleFactor=1.3,
+            minNeighbors=5,
+            minSize=(50, 50),
+            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
+        )
+        num_faces_detected = len(faces)
+        if num_faces_detected > 1:
+            print "\tFound {} face(s) in {}".format(num_faces_detected, f)
+            photos_with_faces[f] = num_faces_detected
+            if len(photos_with_faces) >= 20:
+                break
+
+    print("{} photos in {} contain 2 or more faces. Deleting them".format(
+        len(photos_with_faces), target_dir))
+    for file_path, count in photos_with_faces.iteritems():
+        print("\t{} contains {} faces - deleting it".format(file_path, count))
+        os.remove(file_path)
+
+    return photos_with_faces
 
 
 def _delete_small_files(target_dir, minimum_size_kb):
@@ -233,6 +269,11 @@ def harvest_photos(cfg):
     # Delete images which are too small (less than 10KB)
     _delete_small_files(target_dirs[0], cfg["data"]["min_size_kb"])
     # TODO remove files deleted from the results_df
+
+    # The YFCC dataset has many irrelevant / incorrectly tagged photos,
+    # one way to automatically reduce the number of irrelevant photos
+    # is to discard those with 2 or more faces in it
+    _delete_photos_with_faces(target_dirs[0], cfg["data"]["haar_cascade_xml"])
 
     # # Get rid of duplicate files from raw0
     _delete_duplicates(base_dir, raw0, final_dir)
