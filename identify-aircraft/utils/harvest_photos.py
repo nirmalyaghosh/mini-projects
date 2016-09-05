@@ -6,6 +6,7 @@ Downloads the photos from permissible sources, discards irrelevant photos.
 """
 
 import hashlib
+import ntpath
 import os
 import urllib
 
@@ -54,16 +55,10 @@ def _delete_duplicates(base_dir, dir1, dir_final):
         print("Deleted {} duplicates files under {}".format(ctr, work_dir))
 
 
-def _delete_photos_with_faces(target_dir, cascade_xml_file_path):
-    # Detect faces in the photos and delete them
-    # Credit : https://realpython.com/blog/python/face-recognition-with-python/
-    print("Identifying photos containing 2 or more faces..")
-    photos_with_faces = {}
-    faceCascade = cv2.CascadeClassifier(cascade_xml_file_path)
-    for f in [f for f in os.listdir(target_dir) if
-              os.path.isfile(os.path.join(target_dir, f))]:
-        f = os.path.join(target_dir, f)
-        image = cv2.imread(f)
+def _detect_faces_in_photo(file_path, faceCascade):
+    num_faces_detected = 0
+    try:
+        image = cv2.imread(file_path)
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # Detect faces in the image
         faces = faceCascade.detectMultiScale(
@@ -74,11 +69,26 @@ def _delete_photos_with_faces(target_dir, cascade_xml_file_path):
             flags=cv2.cv.CV_HAAR_SCALE_IMAGE
         )
         num_faces_detected = len(faces)
+    except Exception as exc:
+        print(str(exc))
+    return num_faces_detected
+
+
+def _delete_photos_with_faces(target_dir, cascade_xml_file_path):
+    # Detect faces in the photos and delete them
+    # Credit : https://realpython.com/blog/python/face-recognition-with-python/
+    print("Identifying photos containing 2 or more faces..")
+    photos_with_faces = {}
+    faceCascade = cv2.CascadeClassifier(cascade_xml_file_path)
+    for f in [f for f in os.listdir(target_dir) if
+              os.path.isfile(os.path.join(target_dir, f))]:
+        f = os.path.join(target_dir, f)
+        num_faces_detected = _detect_faces_in_photo(f, faceCascade)
         if num_faces_detected > 1:
             print "\tFound {} face(s) in {}".format(num_faces_detected, f)
             photos_with_faces[f] = num_faces_detected
-            if len(photos_with_faces) >= 20:
-                break
+            # if len(photos_with_faces) >= 20:
+            #     break
 
     print("{} photos in {} contain 2 or more faces. Deleting them".format(
         len(photos_with_faces), target_dir))
@@ -228,7 +238,7 @@ def harvest_photos(cfg):
     df = _read_yfcc_csv(cfg["data"]["yfcc_csv"], models_of_interest)
 
     # Read the file listing the irrelevant photos - this list is hand curated
-    irlvnt = pd.read_csv(cfg["data"]["irrelevant_photos"])
+    irlvnt = pd.read_csv(cfg["data"]["irrelevant_photos"], sep="\t")
     irlvnt["is_irrelevant_photo"] = 1
 
     # Get rid of the irrelevant photos
@@ -273,7 +283,21 @@ def harvest_photos(cfg):
     # The YFCC dataset has many irrelevant / incorrectly tagged photos,
     # one way to automatically reduce the number of irrelevant photos
     # is to discard those with 2 or more faces in it
-    _delete_photos_with_faces(target_dirs[0], cfg["data"]["haar_cascade_xml"])
+    cascade_xml_file_path = cfg["data"]["haar_cascade_xml"]
+    photos_with_faces = _delete_photos_with_faces(target_dirs[0],
+                                                  cascade_xml_file_path)
+    if photos_with_faces:
+        # Need to update irrelevant_photos
+        file_names = []
+        for file_path, count in photos_with_faces.iteritems():
+            file_names.append(ntpath.basename(file_path))
+        df_tmp = pd.DataFrame()
+        df_tmp["image_file_name"] = file_names
+        df_tmp["is_irrelevant_photo"] = 1
+        irlvnt = pd.concat([irlvnt, df_tmp])
+        irlvnt = irlvnt.drop_duplicates(subset=["image_file_name"],
+                                        keep="last")
+        irlvnt.to_csv(cfg["data"]["irrelevant_photos"], index=False, sep="\t")
 
-    # # Get rid of duplicate files from raw0
+    # Get rid of duplicate files from raw0
     _delete_duplicates(base_dir, raw0, final_dir)
