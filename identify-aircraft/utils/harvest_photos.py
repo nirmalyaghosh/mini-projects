@@ -8,13 +8,17 @@ Downloads the photos from permissible sources, discards irrelevant photos.
 import hashlib
 import ntpath
 import os
+import random
+import time
 import urllib
 
+import cfscrape
 import cv2
 import imagehash
 import pandas as pd
 import yaml
 from PIL import Image
+from bs4 import BeautifulSoup
 
 
 def _calculate_image_file_name(image_url):
@@ -113,26 +117,26 @@ def _delete_small_files(target_dir, minimum_size_kb):
     return files_deleted
 
 
-def _download_image(image_url, target_dirs, image_file_name=None):
-    if image_file_name is None:
-        image_file_name = _calculate_image_file_name(image_url)
+def _download_photo(photo_url, target_dirs, file_name=None):
+    if file_name is None:
+        file_name = _calculate_image_file_name(photo_url)
     if target_dirs is None:
         target_dirs = [os.getcwd()]
 
     n = len(target_dirs)
     found = [False] * n
     for i, target_dir in enumerate(target_dirs):
-        image_file_path = os.path.join(target_dir, image_file_name)
-        found[i] = os.path.exists(image_file_path)
+        file_path = os.path.join(target_dir, file_name)
+        found[i] = os.path.exists(file_path)
         if i == n - 1 and found[i] == False:
-            image_file_path = os.path.join(target_dirs[0], image_file_name)
-            if os.path.exists(image_file_path) == False:
-                urllib.urlretrieve(image_url, image_file_path)
+            file_path = os.path.join(target_dirs[0], file_name)
+            if os.path.exists(file_path) == False:
+                urllib.urlretrieve(photo_url, file_path)
 
-    return image_file_path
+    return file_path
 
 
-def _download_images(models_of_interest, target_dirs, data):
+def _download_photos(models_of_interest, target_dirs, data):
     results = []
     for model in models_of_interest:
         image_urls = data[(data["is_{}".format(model)] == 1)] \
@@ -146,7 +150,7 @@ def _download_images(models_of_interest, target_dirs, data):
             if model[0].isdigit():
                 model = "B" + model
             try:
-                image_file_path = _download_image(image_url, target_dirs)
+                image_file_path = _download_photo(image_url, target_dirs)
                 print len(results) + 1, model.upper(), image_url
                 results.append((page_url, image_url, model.upper(),
                                 image_file_path, tags))
@@ -156,16 +160,72 @@ def _download_images(models_of_interest, target_dirs, data):
     return results
 
 
-def _download_images_listed_in_spreadsheet(base_dir, target_dirs, spreadsheet):
+def _download_photos_listed_in_spreadsheet(base_dir, target_dirs, spreadsheet):
     file_path = os.path.join(base_dir, spreadsheet)
     df = pd.read_excel(file_path)
     df = df[(df.Size.isnull())]  # Known not to be of size 1024 x 683 (h)
     df = df.drop_duplicates(subset=["ImageURL"], keep="last")
-    # Download the images
-    print("Downloading images listed in {}".format(file_path))
+    # Download the photos
+    print("Downloading photos listed in {}".format(file_path))
     for index, row in df.iterrows():
-        image_url = row["ImageURL"]
-        image_file_path = _download_image(image_url, target_dirs=target_dirs)
+        photo_url = row["ImageURL"]
+        _ = _download_photo(photo_url, target_dirs=target_dirs)
+
+
+def _harvest_photos_from_source_3(cfg, target_dirs):
+    base_url = cfg["source3"]["base_url"]
+    photo_id_list_file_path = cfg["source3"]["photo_id_list"]
+    output_file_path = cfg["source3"]["output_file_path"]
+
+    with open(photo_id_list_file_path) as f:
+        photo_id_list = f.readlines()
+    photo_id_list = [photo_id.rstrip() for photo_id in photo_id_list]
+    photo_id_list = list(set(photo_id_list))
+    num_photos = len(photo_id_list)
+
+    if num_photos == 0:
+        print("Nothing to be downloaded from {}".format(base_url))
+        return
+    else:
+        print("Downloading {} photos from {}".format(num_photos, base_url))
+
+    list_of_tuples = []
+    for i, photo_id in enumerate(photo_id_list):
+        page_url = base_url + photo_id
+        photo_info = _scrape_photo_info_from_source_3(page_url)
+        photo_url = photo_info[2]
+        photo_file_path = _download_photo(photo_url, target_dirs)
+
+        # Get the size of the photo
+        img = cv2.imread(photo_file_path, cv2.CV_LOAD_IMAGE_COLOR)
+        img_height, img_width, img_depth = img.shape
+        img_size = "{} x {}".format(img_width, img_height)
+        photo_info = list(photo_info)
+        photo_info[4] = img_size
+        photo_info = tuple(photo_info)
+        print i, photo_info, "\n\t", photo_file_path
+
+        list_of_tuples.append(photo_info)
+        time.sleep(random.randint(5, 10))
+
+    num_photos = len(list_of_tuples)
+    if num_photos == 0:
+        print("Nothing downloaded from {}".format(base_url))
+        return
+    else:
+        print("Downloaded {} photos from {}".format(num_photos, base_url))
+
+    # Write to a file to keep track of what has been scraped
+    columns = ["Airline", "PageURL", "ImageURL", "AircraftModel", "Size",
+               "Permission", "Photographer"]
+    df = pd.DataFrame(list_of_tuples, columns=columns)
+    if os.path.exists(output_file_path):
+        df0 = pd.read_csv(output_file_path, sep="\t", encoding="utf-8-sig",
+                          index_col=False)
+        df = pd.concat([df, df0])
+        df = df.drop_duplicates(subset=["ImageURL"], keep="last")
+
+    df.to_csv(output_file_path, encoding="utf-8-sig", index=False, sep="\t")
 
 
 def _read_yfcc_csv(file_path, models_of_interest):
@@ -232,6 +292,39 @@ def _read_yfcc_csv(file_path, models_of_interest):
     return df
 
 
+def _scrape_photo_info_from_source_3(page_url):
+    scraper = cfscrape.create_scraper()
+    scraped_content = scraper.get(page_url).content
+    soup = BeautifulSoup(scraped_content, "lxml")
+    photos = soup.find_all("img", class_="main-image")
+    photo_url = photos[0]["src"]
+
+    # Scrape the aircraft model and airline
+    aircraft_model, airline = None, None
+    info_section = soup.find("section", class_="additional-info aircraft")
+    p_elems = info_section.select("p")
+    for p_elem in p_elems:
+        text = p_elem.text.strip()
+        if len(text) > 0:
+            if "Aircraft: " in text:
+                aircraft_model = text.split(":")[1].strip()
+            if "Airline: " in text:
+                airline = text.split(":")[1].strip()
+
+    # Scrape the photographer's name
+    photographer_name = None
+    info_section = soup.find("section", class_="additional-info photographer")
+    p_elems = info_section.select("p")
+    for i, p_elem in enumerate(p_elems):
+        text = p_elem.text.strip()
+        if len(text) > 0:
+            if i == 0:
+                photographer_name = text.strip()
+    size = ""  # Placeholder - we set it after we download the photo
+    return ((airline, page_url, photo_url, aircraft_model, size, "No",
+             photographer_name))
+
+
 def harvest_photos(cfg):
     models_of_interest = ["a320", "a321", "a330", "a340", "a350", "a380",
                           "737", "747", "757", "767", "777", "787"]
@@ -240,15 +333,15 @@ def harvest_photos(cfg):
     base_dir = cfg["data"]["download_base_dir"]
     raw0, raw1 = "raw0", "raw1"
 
-    # Downloading the images
+    # Downloading the photos
     final_dir = os.path.join(base_dir, "selected")
     target_dirs = [os.path.join(base_dir, raw0),
                    os.path.join(base_dir, raw1),
                    final_dir]
     download = cfg["data"]["download_yhcc"]
-    results_file_path = "harvested_photos_with_filepaths.txt"  # TODO get rid
+    results_file_path = "harvested_images_with_filepaths.txt"  # TODO get rid
     if download == True:
-        results = _download_images(models_of_interest, target_dirs, df)
+        results = _download_photos(models_of_interest, target_dirs, df)
         cols = ["PageURL", "ImageURL", "AircraftModel", "ImageFilePath",
                 "Tags"]
         results_df = pd.DataFrame(results, columns=cols)
@@ -257,15 +350,18 @@ def harvest_photos(cfg):
     else:
         results_df = pd.read_csv(results_file_path, index_col=False, sep="\t")
 
+    # Downloading the images, from source 3
+    _harvest_photos_from_source_3(cfg, target_dirs)
+
     # Read the file listing the irrelevant photos - this list is hand curated
     irlvnt = pd.read_csv(cfg["data"]["irrelevant_photos"], sep="\t")
-    irlvnt["is_irrelevant_photo"] = 1
+    irlvnt["is_irrelevant_image"] = 1
 
-    # Get rid of the irrelevant photos
-    print("Getting rid of the {} irrelevant photos".format(irlvnt.shape[0]))
+    # Get rid of the irrelevant images
+    print("Getting rid of the {} irrelevant images".format(irlvnt.shape[0]))
     df = pd.merge(df, irlvnt, how="left")
-    df["is_irrelevant_photo"].fillna(0, inplace=True)
-    df = df[(df.is_irrelevant_photo == 0)]
+    df["is_irrelevant_image"].fillna(0, inplace=True)
+    df = df[(df.is_irrelevant_image == 0)]
     # Also, get rid of them from the folder, if exists
     for file_name in irlvnt.image_file_name.values.tolist():
         file_path = os.path.join(base_dir, raw0, file_name)
@@ -274,7 +370,7 @@ def harvest_photos(cfg):
             print("\tDeleted {}".format(file_path))
 
     # Next,
-    _download_images_listed_in_spreadsheet(base_dir, target_dirs,
+    _download_photos_listed_in_spreadsheet(base_dir, target_dirs,
                                            cfg["data"]["spreadsheet"])
 
     # Delete images which are too small (less than 10KB)
@@ -294,7 +390,7 @@ def harvest_photos(cfg):
             file_names.append(ntpath.basename(file_path))
         df_tmp = pd.DataFrame()
         df_tmp["image_file_name"] = file_names
-        df_tmp["is_irrelevant_photo"] = 1
+        df_tmp["is_irrelevant_image"] = 1
         irlvnt = pd.concat([irlvnt, df_tmp])
         irlvnt = irlvnt.drop_duplicates(subset=["image_file_name"],
                                         keep="last")
