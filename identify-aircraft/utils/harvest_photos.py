@@ -237,23 +237,8 @@ def harvest_photos(cfg):
                           "737", "747", "757", "767", "777", "787"]
     df = _read_yfcc_csv(cfg["data"]["yfcc_csv"], models_of_interest)
 
-    # Read the file listing the irrelevant photos - this list is hand curated
-    irlvnt = pd.read_csv(cfg["data"]["irrelevant_photos"], sep="\t")
-    irlvnt["is_irrelevant_photo"] = 1
-
-    # Get rid of the irrelevant photos
-    print("Getting rid of the {} irrelevant photos".format(irlvnt.shape[0]))
-    df = pd.merge(df, irlvnt, how="left")
-    df["is_irrelevant_photo"].fillna(0, inplace=True)
-    df = df[(df.is_irrelevant_photo == 0)]
-    # Also, get rid of them from the folder, if exists
     base_dir = cfg["data"]["download_base_dir"]
     raw0, raw1 = "raw0", "raw1"
-    for file_name in irlvnt.image_file_name.values.tolist():
-        file_path = os.path.join(base_dir, raw0, file_name)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print("\tDeleted {}".format(file_path))
 
     # Downloading the images
     final_dir = os.path.join(base_dir, "selected")
@@ -271,6 +256,22 @@ def harvest_photos(cfg):
         results_df.to_csv(results_file_path, index=False, sep="\t")
     else:
         results_df = pd.read_csv(results_file_path, index_col=False, sep="\t")
+
+    # Read the file listing the irrelevant photos - this list is hand curated
+    irlvnt = pd.read_csv(cfg["data"]["irrelevant_photos"], sep="\t")
+    irlvnt["is_irrelevant_photo"] = 1
+
+    # Get rid of the irrelevant photos
+    print("Getting rid of the {} irrelevant photos".format(irlvnt.shape[0]))
+    df = pd.merge(df, irlvnt, how="left")
+    df["is_irrelevant_photo"].fillna(0, inplace=True)
+    df = df[(df.is_irrelevant_photo == 0)]
+    # Also, get rid of them from the folder, if exists
+    for file_name in irlvnt.image_file_name.values.tolist():
+        file_path = os.path.join(base_dir, raw0, file_name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print("\tDeleted {}".format(file_path))
 
     # Next,
     _download_images_listed_in_spreadsheet(base_dir, target_dirs,
