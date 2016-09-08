@@ -292,6 +292,69 @@ def _read_yfcc_csv(file_path, models_of_interest):
     return df
 
 
+def _resize_photo(file_path, target_width=1024, target_height=683):
+    # Helps conform to a standard size
+    # Credit :
+    # https://enumap.wordpress.com/2014/07/06/python-opencv-resize-image-by-width/
+    # http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_core/py_basic_ops/py_basic_ops.html
+    # http://stackoverflow.com/a/22907694
+    original = cv2.imread(file_path, cv2.CV_LOAD_IMAGE_COLOR)
+    if original is None:
+        # Corrupt file
+        return False
+    original_height, original_width, original_depth = original.shape
+    scale_w = float(target_width) / original_width
+    scale_h = float(target_height) / original_height
+
+    if scale_w == 1.0:
+        newX, newY = original.shape[1], original.shape[0]
+        if scale_h > 1.0:
+            newX, newY = original.shape[1], original.shape[0]
+        elif scale_h == 1.0:
+            return False
+        if original_height - target_height < 10:
+            newX, newY = original.shape[1], target_height
+    else:
+        newX, newY = original.shape[1] * scale_w, original.shape[0] * scale_w
+
+    modified = cv2.resize(original, (int(newX), int(newY)))
+
+    # Resizing a photo might require adding a border to the top
+    # if the height of the rescaled image is less than the desired height
+    border = [0] * 4  # top, bottom, left, right
+    if modified.shape[0] < target_height:
+        border[0] = target_height - modified.shape[0]
+    elif modified.shape[0] > target_height:
+        # Need to crop
+        cropped = modified[0:target_height, 0:target_width]
+        dims = cropped.shape
+        if dims[0] == target_height and dims[1] == target_width:
+            modified = cropped
+
+    # Add a border to the top (if required)
+    cv2.copyMakeBorder(modified, border[0], border[1], border[2], border[3],
+                       cv2.BORDER_REPLICATE)
+
+    # Rewrite to file
+    cv2.imwrite(file_path, modified)
+    return True
+
+
+def _resize_photos(target_dir, target_width=1024, target_height=683):
+    photos_resized = []
+    print("Resizing photos under {} to {} x {}" \
+          .format(target_dir, target_width, target_height))
+    for f in [f for f in os.listdir(target_dir) if
+              os.path.isfile(os.path.join(target_dir, f))]:
+        f = os.path.join(target_dir, f)
+        is_resized = _resize_photo(f, target_width, target_height)
+        if is_resized:
+            photos_resized.append(f)
+
+    print("Resized {} photos under {}".format(len(photos_resized), target_dir))
+    return photos_resized
+
+
 def _scrape_photo_info_from_source_3(page_url):
     scraper = cfscrape.create_scraper()
     scraped_content = scraper.get(page_url).content
@@ -373,9 +436,12 @@ def harvest_photos(cfg):
     _download_photos_listed_in_spreadsheet(base_dir, target_dirs,
                                            cfg["data"]["spreadsheet"])
 
-    # Delete images which are too small (less than 10KB)
+    # Delete photos which are too small (less than 10KB)
     _delete_small_files(target_dirs[0], cfg["data"]["min_size_kb"])
     # TODO remove files deleted from the results_df
+
+    # Resize the photos
+    _resize_photos(target_dirs[0], target_width=1024, target_height=683)
 
     # The YFCC dataset has many irrelevant / incorrectly tagged photos,
     # one way to automatically reduce the number of irrelevant photos
