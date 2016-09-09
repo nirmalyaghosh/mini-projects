@@ -125,10 +125,13 @@ def _download_photo(photo_url, target_dirs, file_name=None):
 
     n = len(target_dirs)
     found = [False] * n
+    file_path = None
     for i, target_dir in enumerate(target_dirs):
         file_path = os.path.join(target_dir, file_name)
         found[i] = os.path.exists(file_path)
-        if i == n - 1 and found[i] == False:
+        if found[i] == True:
+            break
+        if i == n - 1:
             file_path = os.path.join(target_dirs[0], file_name)
             if os.path.exists(file_path) == False:
                 urllib.urlretrieve(photo_url, file_path)
@@ -400,7 +403,19 @@ def harvest_photos(cfg):
     final_dir = os.path.join(base_dir, "selected")
     target_dirs = [os.path.join(base_dir, raw0),
                    os.path.join(base_dir, raw1),
-                   final_dir]
+                   os.path.join(base_dir, final_dir)]
+
+    # Adding aircraft-model specific subdirectories (if any)
+    for m in cfg["data"]["aircraft_model_subdirectory_names"]:
+        directory = os.path.join(final_dir, m)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    final_dir_subdirs = [x[0] for x in os.walk(final_dir)]
+    if final_dir_subdirs and len(final_dir_subdirs) > 1:
+        final_dir_subdirs.remove(final_dir)
+        target_dirs.extend(final_dir_subdirs)
+
     download = cfg["data"]["download_yhcc"]
     results_file_path = "harvested_images_with_filepaths.txt"  # TODO get rid
     if download == True:
