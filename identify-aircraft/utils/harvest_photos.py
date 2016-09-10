@@ -309,13 +309,13 @@ def _resize_photo(file_path, target_width=1024, target_height=683):
     scale_w = float(target_width) / original_width
     scale_h = float(target_height) / original_height
 
+    newX, newY = original_width, original_height
     if scale_w == 1.0:
-        newX, newY = original.shape[1], original.shape[0]
         if scale_h > 1.0:
             newX, newY = original.shape[1], original.shape[0]
         elif scale_h == 1.0:
             return False
-        if original_height - target_height < 10:
+        elif original_height - target_height < 10:
             newX, newY = original.shape[1], target_height
     else:
         newX, newY = original.shape[1] * scale_w, original.shape[0] * scale_w
@@ -335,8 +335,8 @@ def _resize_photo(file_path, target_width=1024, target_height=683):
             modified = cropped
 
     # Add a border to the top (if required)
-    cv2.copyMakeBorder(modified, border[0], border[1], border[2], border[3],
-                       cv2.BORDER_REPLICATE)
+    modified = cv2.copyMakeBorder(modified, border[0], border[1], border[2],
+                                  border[3], cv2.BORDER_REPLICATE)
 
     # Rewrite to file
     cv2.imwrite(file_path, modified)
