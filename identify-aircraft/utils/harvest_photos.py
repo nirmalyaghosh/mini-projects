@@ -400,21 +400,25 @@ def harvest_photos(cfg):
     raw0, raw1 = "raw0", "raw1"
 
     # Downloading the photos
-    final_dir = os.path.join(base_dir, "selected")
+    train_data_dir = os.path.join(base_dir, "selected")
+    test_data_dir = os.path.join(base_dir, "testdata")
     target_dirs = [os.path.join(base_dir, raw0),
                    os.path.join(base_dir, raw1),
-                   os.path.join(base_dir, final_dir)]
+                   os.path.join(base_dir, train_data_dir),
+                   os.path.join(base_dir, test_data_dir)]
 
     # Adding aircraft-model specific subdirectories (if any)
+    # and add them to 'target_dirs' - locations where a photo may reside
     for m in cfg["data"]["aircraft_model_subdirectory_names"]:
-        directory = os.path.join(final_dir, m)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-    final_dir_subdirs = [x[0] for x in os.walk(final_dir)]
-    if final_dir_subdirs and len(final_dir_subdirs) > 1:
-        final_dir_subdirs.remove(final_dir)
-        target_dirs.extend(final_dir_subdirs)
+        for parent_dir in [train_data_dir, test_data_dir]:
+            directory = os.path.join(parent_dir, m)
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            # Add to 'target_dirs'
+            subdirectories = [x[0] for x in os.walk(parent_dir)]
+            if subdirectories and len(subdirectories) > 1:
+                subdirectories.remove(parent_dir)
+                target_dirs.extend(subdirectories)
 
     download = cfg["data"]["download_yhcc"]
     results_file_path = "harvested_images_with_filepaths.txt"  # TODO get rid
@@ -478,4 +482,4 @@ def harvest_photos(cfg):
         irlvnt.to_csv(cfg["data"]["irrelevant_photos"], index=False, sep="\t")
 
     # Get rid of duplicate files from raw0
-    _delete_duplicates(base_dir, raw0, final_dir)
+    _delete_duplicates(base_dir, raw0, train_data_dir)
