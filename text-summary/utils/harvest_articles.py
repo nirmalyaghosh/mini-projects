@@ -20,14 +20,35 @@ import yaml
 from bs4 import BeautifulSoup
 
 
-def _download_article_content(cfg, json_file_path, txt_dir, date_str):
+def _download_article_content(api_url, params):
+    # Download the content for a specific article
+    try:
+        data = requests.get(api_url, params).json()
+        content = data["response"]["content"]
+    except:
+        content = None
+
+    paragraph_separator = "  "
+    text = None
+    if content and content["type"] == "article":
+        body_html = content["fields"]["body"]
+        soup = BeautifulSoup(body_html, "lxml")
+        paragraphs = [p.text for p in soup.find_all("p")]
+        text = paragraph_separator.join(paragraphs)
+        text = text.encode("ascii", "ignore")
+        text = text.strip().replace("\n", " ").replace("\r", " ")
+
+    return text
+
+
+def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
     if not os.path.exists(json_file_path):
         return
 
     with open(json_file_path) as json_file:
         data = json.load(json_file)
 
-    # Read previously read article content
+    # Read previously read articles' content
     cols = ["section", "url", "type", "headline", "wordcount", "content",
             "api_url"]
     df = pd.DataFrame(columns=cols)
@@ -53,34 +74,20 @@ def _download_article_content(cfg, json_file_path, txt_dir, date_str):
         df = df.drop_duplicates(subset=["url"], keep="last")
         df.reset_index(drop=True, inplace=True)
 
-    # Download content
+    # Download content for each of the articles
     n = df.shape[0]
     params = {"api-key": cfg["guardian"]["apikey"], "format": "json",
               "show-fields": "body,lastModified,wordcount"}
-    paragraph_separator = "  "
     for i, row in df.iterrows():
         c = row["content"]
         if c and len(c.strip()) > 0:
             continue
 
-        # Download the content
+        # Download the content for a specific article
         print("Downloading content {} of {} for {}".format(i, n, date_str))
-        api_url = row["api_url"]
-        try:
-            data = requests.get(api_url, params).json()
-            content = data["response"]["content"]
-        except:
-            content = None
-
-        # Read the article body text
-        if content and content["type"] == "article":
-            body_html = content["fields"]["body"]
-            soup = BeautifulSoup(body_html, "lxml")
-            paragraphs = [p.text for p in soup.find_all("p")]
-            text = paragraph_separator.join(paragraphs)
-            text = text.encode("ascii", "ignore")
-            text = text.strip().replace("\n", " ").replace("\r", " ")
-            df.set_value(i, "content", text)
+        content = _download_article_content(row["api_url"], params)
+        if content:
+            df.set_value(i, "content", content)
 
     # Finally,
     df = df.drop_duplicates(subset=["url", "content"], keep="last")
@@ -165,7 +172,7 @@ def harvest_articles(yaml_config_file_path):
         json_file_paths.append(json_file_path)
 
         # Retrieve the content for each of the articles
-        _download_article_content(cfg, json_file_path, txt_dir, date_str)
+        _download_articles_content(cfg, json_file_path, txt_dir, date_str)
 
 
 if __name__ == "__main__":
