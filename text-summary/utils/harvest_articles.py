@@ -10,6 +10,7 @@ https://gist.github.com/dannguyen/c9cb220093ee4c12b840
 """
 
 import json
+import multiprocessing as mp
 import os
 from datetime import timedelta as td
 
@@ -20,8 +21,10 @@ import yaml
 from bs4 import BeautifulSoup
 
 
-def _download_article_content(api_url, params):
+def _download_article_content(api_url, params, i, mssg):
     # Download the content for a specific article
+    process_name = mp.current_process().name
+    print("{} {}".format(process_name, mssg))
     try:
         data = requests.get(api_url, params).json()
         content = data["response"]["content"]
@@ -38,7 +41,7 @@ def _download_article_content(api_url, params):
         text = text.encode("ascii", "ignore")
         text = text.strip().replace("\n", " ").replace("\r", " ")
 
-    return text
+    return i, text
 
 
 def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
@@ -51,7 +54,6 @@ def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
     # Read previously read articles' content
     cols = ["section", "url", "type", "headline", "wordcount", "content",
             "api_url"]
-    df = pd.DataFrame(columns=cols)
     tuples = []
     for item in data:
         headline = item["webTitle"].encode("ascii", "ignore")
@@ -78,16 +80,36 @@ def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
     n = df.shape[0]
     params = {"api-key": cfg["guardian"]["apikey"], "format": "json",
               "show-fields": "body,lastModified,wordcount"}
+    input_q = mp.Queue()
+    output_q = mp.Queue()
+    num_processes = cfg["guardian"]["num_processes"]
+    count = 0
     for i, row in df.iterrows():
         c = row["content"]
         if c and len(c.strip()) > 0:
             continue
 
-        # Download the content for a specific article
-        print("Downloading content {} of {} for {}".format(i, n, date_str))
-        content = _download_article_content(row["api_url"], params)
+        # Delegate the task of downloading an article's content to a worker
+        mssg = "Downloading content {} of {} for {}".format(i, n, date_str)
+        input_q.put((_download_article_content,
+                     (row["api_url"], params, i, mssg)))
+        count += 1
+
+    # Start the workers
+    for i in range(num_processes):
+        mp.Process(target=worker, args=(input_q, output_q)).start()
+
+    # Read the content extracted by the workers
+    for i in range(count):
+        _tuple = output_q.get()
+        i, content = _tuple[0], _tuple[1]
+        print '\t', i, content
         if content:
             df.set_value(i, "content", content)
+
+    # Stop the workers
+    for i in range(num_processes):
+        input_q.put("STOP")
 
     # Finally,
     df = df.drop_duplicates(subset=["url", "content"], keep="last")
@@ -100,7 +122,7 @@ def _download_articles_list(cfg, params, date_str, json_file_path):
         return
     print("Downloading", date_str, json_file_path)
 
-    API_ENDPOINT = "http://content.guardianapis.com/search"
+    api_endpoint = "http://content.guardianapis.com/search"
     sections_of_interest = set(cfg["guardian"]["sections"])
 
     all_results = []
@@ -111,7 +133,7 @@ def _download_articles_list(cfg, params, date_str, json_file_path):
     while current_page <= total_pages:
         print("...page", current_page)
         params["page"] = current_page
-        resp = requests.get(API_ENDPOINT, params)
+        resp = requests.get(api_endpoint, params)
         data = resp.json()
         results = data["response"]["results"]
         for result in results:
@@ -129,20 +151,22 @@ def _download_articles_list(cfg, params, date_str, json_file_path):
         json_file.write(json.dumps(all_results, indent=2))
 
 
+def worker(in_q, out_q):
+    for func, args in iter(in_q.get, "STOP"):
+        result = func(*args)
+        out_q.put(result)
+
+
 def harvest_articles(yaml_config_file_path):
     with open(yaml_config_file_path, "r") as f:
         cfg = yaml.load(f)
 
-    API_KEY = cfg["guardian"]["apikey"]
-    API_ENDPOINT = "http://content.guardianapis.com/search"
     base_dir = cfg["guardian"]["base_dir"]
-
     d1 = dateparser.parse(cfg["guardian"]["start_date"])
     d2 = dateparser.parse(cfg["guardian"]["end_date"])
-    sections_of_interest = set(cfg["guardian"]["sections"])
 
     params = {
-        "api-key": API_KEY,
+        "api-key": cfg["guardian"]["apikey"],
         "from-date": "",
         "to-date": "",
         "order-by": "oldest",
