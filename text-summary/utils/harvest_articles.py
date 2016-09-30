@@ -10,8 +10,10 @@ https://gist.github.com/dannguyen/c9cb220093ee4c12b840
 """
 
 import json
+import logging
 import multiprocessing as mp
 import os
+import sys
 from datetime import timedelta as td
 
 import dateparser
@@ -20,11 +22,15 @@ import requests
 import yaml
 from bs4 import BeautifulSoup
 
+logging.basicConfig(format="%(asctime)s %(processName)12s : %(message)s",
+                    level=logging.INFO, datefmt="%H:%M:%S")
+logger = logging.getLogger(__name__)
+
 
 def _download_article_content(api_url, params, i, mssg):
     # Download the content for a specific article
     process_name = mp.current_process().name
-    print("{} {}".format(process_name, mssg))
+    logger.info("{} {}".format(process_name, mssg))
     try:
         data = requests.get(api_url, params).json()
         content = data["response"]["content"]
@@ -97,13 +103,12 @@ def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
 
     # Start the workers
     for i in range(num_processes):
-        mp.Process(target=worker, args=(input_q, output_q)).start()
+        mp.Process(target=_worker, args=(input_q, output_q)).start()
 
     # Read the content extracted by the workers
     for i in range(count):
         _tuple = output_q.get()
         i, content = _tuple[0], _tuple[1]
-        print '\t', i, content
         if content:
             df.set_value(i, "content", content)
 
@@ -113,14 +118,14 @@ def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
 
     # Finally,
     df = df.drop_duplicates(subset=["url", "content"], keep="last")
-    print("Downloaded {} articles for {}\n".format(df.shape[0], date_str))
+    logger.info("Downloaded {} articles for {}".format(df.shape[0], date_str))
     df.to_csv(articles_file_path, encoding="utf-8-sig", index=False, sep="\t")
 
 
 def _download_articles_list(cfg, params, date_str, json_file_path):
     if os.path.exists(json_file_path):
         return
-    print("Downloading", date_str, json_file_path)
+    logger.info("Downloading articles for {}".format(date_str))
 
     api_endpoint = "http://content.guardianapis.com/search"
     sections_of_interest = set(cfg["guardian"]["sections"])
@@ -131,27 +136,39 @@ def _download_articles_list(cfg, params, date_str, json_file_path):
     current_page = 1
     total_pages = 1
     while current_page <= total_pages:
-        print("...page", current_page)
+        logger.debug("Page {} of {} ..".format(current_page, total_pages))
         params["page"] = current_page
         resp = requests.get(api_endpoint, params)
         data = resp.json()
+        if "response" not in data:
+            logger.info(data)
+            if "message" in data \
+                    and "rate limit exceeded" in data["message"].lower():
+                sys.exit(0)
+            else:
+                break
+
         results = data["response"]["results"]
         for result in results:
             if result["sectionId"] in sections_of_interest:
                 all_results.append(result)
 
-        # if there is more than one page
+        # If there is more than one page
         current_page += 1
         total_pages = data["response"]["pages"]
 
-    print(date_str, len(all_results))
+    if len(all_results) == 0:
+        logger.info("No results for {}".format(date_str))
+        return
+
+    logger.info("{} results for {}".format(len(all_results), date_str))
     with open(json_file_path, "w") as json_file:
-        print("Writing to", json_file_path)
+        logging.info("Writing to {}".format(json_file_path))
         # re-serialize it for pretty indentation
         json_file.write(json.dumps(all_results, indent=2))
 
 
-def worker(in_q, out_q):
+def _worker(in_q, out_q):
     for func, args in iter(in_q.get, "STOP"):
         result = func(*args)
         out_q.put(result)
