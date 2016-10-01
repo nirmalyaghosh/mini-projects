@@ -29,13 +29,16 @@ logger = logging.getLogger(__name__)
 
 def _download_article_content(api_url, params, i, mssg):
     # Download the content for a specific article
-    process_name = mp.current_process().name
-    logger.info("{} {}".format(process_name, mssg))
+    logger.info(mssg)
+    content = None
     try:
-        data = requests.get(api_url, params).json()
-        content = data["response"]["content"]
-    except:
-        content = None
+        data = requests.get(api_url, params, timeout=180).json()
+        if data and "response" in data:
+            content = data["response"]["content"]
+    except requests.exceptions.Timeout:
+        logger.warn("Timeout occurred")
+    except Exception, e:
+        logger.warn("Some other exception: {}".format(e), exc_info=True)
 
     paragraph_separator = "  "
     text = None
@@ -103,7 +106,9 @@ def _download_articles_content(cfg, json_file_path, txt_dir, date_str):
 
     # Start the workers
     for i in range(num_processes):
-        mp.Process(target=_worker, args=(input_q, output_q)).start()
+        p = mp.Process(target=_worker, args=(input_q, output_q))
+        p.name = "Process-{}".format(i + 1)
+        p.start()
 
     # Read the content extracted by the workers
     for i in range(count):
@@ -133,13 +138,21 @@ def _download_articles_list(cfg, params, date_str, json_file_path):
     all_results = []
     params["from-date"] = date_str
     params["to-date"] = date_str
-    current_page = 1
-    total_pages = 1
+    current_page, total_pages = 1, 1
     while current_page <= total_pages:
         logger.debug("Page {} of {} ..".format(current_page, total_pages))
         params["page"] = current_page
-        resp = requests.get(api_endpoint, params)
-        data = resp.json()
+        data = None
+        try:
+            resp = requests.get(api_endpoint, params, timeout=180)
+            data = resp.json()
+        except requests.exceptions.Timeout:
+            logger.warn("Timeout occurred")
+            continue
+        except Exception, e:
+            logger.warn("Some other exception: {}".format(e), exc_info=True)
+            continue
+
         if "response" not in data:
             logger.info(data)
             if "message" in data \
