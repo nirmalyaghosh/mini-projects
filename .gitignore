@@ -1,7 +1,11 @@
 *.class
 *.classpath
+*.h264
 *.launch
+*.png
 *.project
 *.prefs
 *.jpg
+*.jpeg
+.idea/
 target/
