@@ -1,0 +1,54 @@
+Vagrant.configure("2") do |config|
+  config.vm.define "vm1" do |vm1|
+    vm1.vm.box = "ubuntu/trusty64"
+    vm1.vm.hostname = 'vm1'
+    vm1.vm.box_url = "ubuntu/trusty64"
+
+    vm1.vm.network :private_network, ip: "192.168.56.101"
+
+    vm1.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 2048]
+      v.customize ["modifyvm", :id, "--name", "vm1"]
+    end
+
+    vm1.vm.provision :shell, path: "provision-vm1.sh", keep_color: true
+
+    vm1.vm.synced_folder "data", "/home/vagrant/data", create: true
+    vm1.vm.synced_folder ".", "/home/vagrant/notebooks", create: true
+
+    vm1.vm.network "forwarded_port", guest: 9000, host: 9000, auto_correct: true
+    vm1.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
+    vm1.vm.provision "shell", run: "always", inline: <<-SHELL
+      /home/vagrant/miniconda/bin/ipython notebook --notebook-dir=/home/vagrant/notebooks --port 9000 --ip=0.0.0.0 &
+    SHELL
+
+  end
+
+
+  config.vm.define "vm2" do |vm2|
+    vm2.vm.box = "ubuntu/trusty64"
+    vm2.vm.hostname = 'vm2'
+    vm2.vm.box_url = "ubuntu/trusty64"
+
+    vm2.vm.network :private_network, ip: "192.168.56.102"
+
+    vm2.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 8192]
+      v.customize ["modifyvm", :id, "--name", "vm2"]
+    end
+
+    vm2.vm.provision :shell, path: "provision-vm2.sh", keep_color: true
+
+    vm2.vm.synced_folder "data", "/home/vagrant/data", create: true
+    vm2.vm.synced_folder ".", "/home/vagrant/notebooks", create: true
+
+    vm2.vm.network "forwarded_port", guest: 9001, host: 9001, auto_correct: true
+    vm2.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
+    vm2.vm.provision "shell", run: "always", inline: <<-SHELL
+      /home/vagrant/miniconda/bin/ipython notebook --notebook-dir=/home/vagrant/notebooks --port 9001 --ip=0.0.0.0 &
+    SHELL
+
+  end
+end
