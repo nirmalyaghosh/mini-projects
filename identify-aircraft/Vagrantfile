@@ -1,0 +1,31 @@
+require "yaml"
+
+VAGRANTFILE_API_VERSION = "2"
+
+vmconfig = YAML.load_file("vmconfig.yaml")
+
+Vagrant.configure(2) do |config|
+  config.vm.box         = "ubuntu/trusty64"
+  config.vm.hostname    = "identify-aircraft-vm"
+  config.vm.box_version = "20160406.0.0"
+
+  config.vm.provider "virtualbox" do |v|
+    v.cpus   = vmconfig["vm_cpus"]
+    v.memory = vmconfig["vm_memory"]
+    v.name   = "identify-aircraft-vm"
+  end
+
+  config.vm.provision :shell, path: "provision.sh", keep_color: true
+  config.vm.provision "file", source: "jupyter_application_config.py", destination: "/home/vagrant/jupyter_notebook_config.py"
+
+  config.vm.synced_folder vmconfig["train_dir"], "/home/vagrant/data/train"
+  config.vm.synced_folder vmconfig["test_dir"], "/home/vagrant/data/test"
+  config.vm.synced_folder ".", "/home/vagrant/notebooks"
+
+  config.vm.network "forwarded_port", guest: 8400, host: 8400, auto_correct: true
+  config.ssh.shell = "bash -c 'BASH_ENV=/etc/profile exec bash'"
+  config.vm.provision "shell", run: "always", inline: <<-SHELL
+    /home/vagrant/miniconda/bin/jupyter notebook --notebook-dir=/home/vagrant/notebooks --port 8400 --ip=0.0.0.0 --config=/home/vagrant/jupyter_notebook_config.py &
+  SHELL
+
+end

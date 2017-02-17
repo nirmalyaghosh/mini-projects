@@ -1,0 +1,4 @@
+train_dir: path\to\datasets\airliners\selected
+test_dir : path\to\datasets\airliners\testdata
+vm_cpus : 4
+vm_memory : 4096
