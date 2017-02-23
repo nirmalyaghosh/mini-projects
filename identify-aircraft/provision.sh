@@ -79,6 +79,10 @@ export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorf
 /home/vagrant/miniconda/bin/pip install $TF_BINARY_URL >/dev/null 2>&1
 
 ################################################
+# Other Python packages
+/home/vagrant/miniconda/bin/pip install --verbose -r /home/vagrant/requirements.txt
+
+################################################
 mssg "Installing IPython Notebook server"
 mkdir -p /home/vagrant/notebooks
 chown -R vagrant:vagrant /home/vagrant/notebooks
