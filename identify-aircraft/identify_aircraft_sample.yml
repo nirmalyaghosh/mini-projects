@@ -10,6 +10,7 @@ script_2:
   final_tensor_name: id_aircraft_final_tensor
   images_dir: /path/to/datasets/airliners
   learning_rate: 0.005
+  model_name: identify_aircraft
   models_dir: /path/to/models_dir
   num_training_steps_before_ending: 100
   output_labels: output_labels.txt
@@ -19,6 +20,7 @@ script_2:
   pretrained_model: /path/to/models_dir/tensorflow_inception_graph_dec_2015.pb
   print_misclassified_test_images: True
   summaries_dir: /path/to/summaries_dir
+  timestamp_format: "%Y_%m_%d_%H_%M_%S"
   train_batch_size: 100
   train_on_labels: ["A321", "A340", "B747", "CRJ900"]
   test_batch_size: -1
