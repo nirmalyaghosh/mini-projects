@@ -1,5 +1,7 @@
 *.class
 *.classpath
+*.ckpt
+*.gz
 *.h264
 *.launch
 *.png
@@ -7,5 +9,7 @@
 *.prefs
 *.jpg
 *.jpeg
+*.zip
+*- Copy.*
 .idea/
 target/
